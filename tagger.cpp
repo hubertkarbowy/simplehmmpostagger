@@ -100,7 +100,7 @@ string Tagger::tagsCollapser(string extended_tag) {
 }
 
 // Viterbi algorithm. Todo: merge the first and subsequent iterations into a single loop.
-vector<string> Tagger::tag(vector<string> tokens) {
+std::vector<string> Tagger::tag(vector<string> tokens) {
     map<string, double> previous_column;
     map<string, double> this_column;
     vector<string> backpointers;
@@ -163,7 +163,7 @@ vector<string> Tagger::tag(vector<string> tokens) {
 }
 
 // Just split the incoming string by spaces. It's primitive, but that's not the point.
-vector<string> Tagger::tokenize(string s) {
+std::vector<string> Tagger::tokenize(string s) {
     string token;
     vector<string> tokens;
     stringstream ss(s);

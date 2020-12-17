@@ -3,9 +3,13 @@
 #include <map>
 #include <cmath>
 #include <climits>
+#include <vector>
 #include "ugly_global_vars.h"
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
+
+#ifndef __TAGGER_H__
+#define __TAGGER_H__
 
 using namespace std;
 namespace boost {
@@ -43,3 +47,4 @@ class Tagger {
         vector<string> tag(vector<string> tokens);
         
 };
+#endif
