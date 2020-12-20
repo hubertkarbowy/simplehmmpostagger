@@ -172,3 +172,103 @@ std::vector<string> Tagger::tokenize(string s) {
     }
     return tokens;
 }
+
+#ifdef __NATIVE_SERIALIZATION__
+void Tagger::serialize_native() {
+    cout << "Serializing data to `serialized_native.txt`...\n";
+    stringstream text_archive("");
+    text_archive << "=== SIMPLEHMMPOSTAGGER_HEADER ===\n";
+    text_archive << "n_gram\t" << (this->n_gram) << "\n";
+    text_archive << "total_tokens_count\t" << (this->total_tokens_count) << "\n";
+    text_archive << "=== BEGIN UNIGRAM_TAG_COUNTS_DATA ====\n";
+    for (auto it = this->unigram_tag_counts.begin(); it != this->unigram_tag_counts.end(); it++) {
+        text_archive << it->first << "\t" << it->second << "\n";
+    }
+    text_archive << "=== BEGIN BIGRAM_TAG_COUNTS_DATA ====\n";
+    for (auto it = this->bigram_tag_counts.begin(); it != this->bigram_tag_counts.end(); it++) {
+        text_archive << it->first << "\t" << it->second << "\n";
+    }
+    text_archive << "=== BEGIN TRIGRAM_TAG_COUNTS_DATA ====\n";
+    for (auto it = this->trigram_tag_counts.begin(); it != this->trigram_tag_counts.end(); it++) {
+        text_archive << it->first << "\t" << it->second << "\n";
+    }
+    text_archive << "=== BEGIN TAGS_PER_WORD_COUNTS_DATA ====\n";
+    for (auto it = this->tags_per_word_counts.begin(); it != this->tags_per_word_counts.end(); it++) {
+        text_archive << it->first << "\n";
+        for (auto it_inner = it->second.begin(); it_inner != it->second.end(); it_inner++) {
+            text_archive << it_inner->first << "\t" << it_inner->second << "\t";
+        }
+        text_archive << "\n";
+    }
+    ofstream f("serialized_native.txt", ofstream::out);
+    f << text_archive.str();
+    f.flush();
+    f.close();
+}
+
+void Tagger::deserialize_native() {
+    cout << "Restoring data from `serialized_native.txt`...\n";
+    ifstream f("serialized_native.txt");
+    cout << "Validating file information: ";
+    unsigned char is_valid_file = 31;
+    string line;
+    while (getline(f, line)) {
+        if (line.find("=== SIMPLEHMMPOSTAGGER_HEADER") == 0) { cout << "HEADER "; is_valid_file ^= 16; }
+        if (line.find("=== BEGIN UNIGRAM_TAG_COUNTS_DATA") == 0) { cout << "UNIGRAM "; is_valid_file ^= 8; }
+        if (line.find("=== BEGIN BIGRAM_TAG_COUNTS_DATA") == 0) { cout << "BIGRAM "; is_valid_file ^= 4; }
+        if (line.find("=== BEGIN TRIGRAM_TAG_COUNTS_DATA") == 0) { cout << "TRIGRAM "; is_valid_file ^= 2; }
+        if (line.find("=== BEGIN TAGS_PER_WORD_COUNTS_DATA") == 0) { cout << "TAG_COUNTS "; is_valid_file ^= 1; }
+    }
+    cout << endl;
+    if (is_valid_file != 0) {
+        cout << "Archive appears corrupted\n";
+        exit(1);
+    }
+    cout << "Archive appears correct\n";
+    f.clear();
+    f.seekg(0);
+    string mode;
+    while (getline(f, line)) {
+        if (line.find("=== SIMPLEHMMPOSTAGGER_HEADER") == 0) { mode = "header"; }
+        else if (line.find("=== BEGIN UNIGRAM_TAG_COUNTS_DATA") == 0) { mode = "unigram"; }
+        else if (line.find("=== BEGIN BIGRAM_TAG_COUNTS_DATA") == 0) { mode = "bigram"; }
+        else if (line.find("=== BEGIN TRIGRAM_TAG_COUNTS_DATA") == 0) { mode = "trigram"; }
+        else if (line.find("=== BEGIN TAGS_PER_WORD_COUNTS_DATA") == 0) { mode = "counts"; }
+        else {
+            if (mode == "header") {
+                string token;
+                string param_name;
+                int param_value;
+                stringstream params_tuple = stringstream(line);
+                params_tuple >> param_name >> param_value;
+                if (param_name == "n_gram") this->n_gram = param_value;
+                if (param_name == "total_tokens_count") this->total_tokens_count;
+            }
+            else if (mode == "unigram" || mode == "bigram" || mode == "trigram") {
+                string tag;
+                int tag_count;
+                stringstream params_tuple = stringstream(line);
+                params_tuple >> tag >> tag_count;
+                auto ngram_counts = (mode == "trigram" ? this->trigram_tag_counts : (mode == "bigram" ? this->bigram_tag_counts : this->unigram_tag_counts));
+                ngram_counts[tag] = tag_count;
+                cout << tag << "*" << tag_count << endl;
+            }
+            else if (mode == "counts") {
+                string tag = line;
+                getline(f, line); // read second line
+                stringstream token_counts = stringstream(line);
+                int tuple_idx = 0;
+                string token;
+                float cnt;
+                while (!token_counts.eof()) {
+                    if (token_counts.tellg() == -1) { // last tab
+                        break;
+                    }
+                    token_counts >> token >> cnt;
+                    this->tags_per_word_counts[tag][token] = cnt;
+                }
+            }
+        }
+    }
+}
+#endif

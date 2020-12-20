@@ -3,47 +3,107 @@
 #include "file_ops.h"
 #include "string_helpers.h"
 #include "ugly_global_vars.h"
+#include "getopt.h"
+
+#ifdef __BOOST_SERIALIZATION__
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/serialization/map.hpp>
+#endif
 
 using namespace std;
 int logger = 0; // declared extern in ugly_global_vars.h
 
+int process_cli_options(int argc, char** argv, Tagger* x) {
+}
+
 int main (int argc, char** argv) {
-    Tagger* p;
-    goto readymodel; // Ehh... how bad can it get with one 'goto'? https://xkcd.com/292/
-                     // Comment this out if you don't want to use serialized data and build the model first.
-    try {
-        p = read_corpus(BROWN, "brown"); // First parameter is enum specifying corpus type, the second param gives the directory with corpus files. Only the Brown corpus is supported for now.
-                                         // Model building happens while files are being loaded.
-        cout << endl << endl;
-    }
-    catch (const invalid_argument &e) {
-        cout << e.what();
-        exit (-1);
-    }
-    
-    // save serialized data
-    {
-        std::ofstream ofs("serialized.txt");
-        boost::archive::text_oarchive ar(ofs);
-        ar & p;
+    Tagger* x = NULL;
+    int c;
+    while (1) {
+        static struct option tagger_opts[] = {
+            {"read-raw",               no_argument, 0, 'a'},
+            #ifdef __NATIVE_SERIALIZATION__
+            {"native-deserialize",     no_argument, 0, 'b'},
+            {"native-serialize",       no_argument, 0, 'c'},
+            #endif
+            #ifdef __BOOST_SERIALIZATION__
+            {"boost-deserialize",      no_argument, 0, 'd'},
+            {"boost-serialize",        no_argument, 0, 'e'},
+            #endif
+            {0, 0, 0, 0}
+      };
+      int opt_index = 0;
+      c = getopt_long_only(argc, argv, "", tagger_opts, &opt_index);
+      if (c == -1) break;
+      switch(c) {
+          case 'a':
+               if (tagger_opts[opt_index].flag == 0) {
+                try {
+                     x = read_corpus(BROWN, "brown"); // First parameter is enum specifying corpus type, the second param gives the directory with corpus files. Only the Brown corpus is supported for now.
+                                                      // Model building happens while files are being loaded.
+                }
+                catch (const invalid_argument &e) {
+                    cout << e.what();
+                    exit (-1);
+                }
+               }
+                break;
+          #ifdef __NATIVE_SERIALIZATION__
+          case 'b':
+                x = new Tagger(2);
+                x->deserialize_native();
+                break;
+          case 'c':
+                if (x == NULL) {
+                    cout << "Cannot serialize a non-existent tagger\n";
+                    exit(-1);
+                }
+                x->serialize_native();
+                break;
+          #endif
+          #ifdef __BOOST_SERIALIZATION__
+          case 'd':
+                {
+                    // Create and input archive
+                    cout << "Restoring the HMM model from `serialized.txt`...";
+                    std::ifstream ifs( "serialized.txt" );
+                    boost::archive::text_iarchive ar(ifs);
+                    // Load the data
+                    ar & x;
+                    cout << " done." << endl;
+                }
+                break;
+          case 'e':
+                {
+                    std::ofstream ofs("serialized.txt");
+                    boost::archive::text_oarchive ar(ofs);
+                    ar & x;
+                }
+                break;
+          #endif
+      }
     }
 
-readymodel:
-
-    Tagger* x;
-    // load serialized data
-    {
-        // Create and input archive
-        std::ifstream ifs( "serialized.txt" );
-        boost::archive::text_iarchive ar(ifs);
- 
-        // Load the data
-        ar & x;
+    if (x == NULL) {
+        cout << "Cannot instantiate tagger. Please check options:\n";
+        cout << "  --read-raw              read the Brown corpus and do the computations from scratch\n";
+        #ifdef __NATIVE_SERIALIZATION__
+        cout << "  --native-deserialize    much, much slower than reading the Brown corpus\n";
+        #endif
+        #ifdef __BOOST_SERIALIZATION__
+        cout << "  --boost-deserialize     deserialize from a Boost text archive\n";
+        #endif
+        cout << "\nIf you pass --read-raw, you can additionally pass the following: \n";
+        #ifdef __NATIVE_SERIALIZATION__
+        cout << "  --native-serialize\n";
+        #endif
+        #ifdef __BOOST_SERIALIZATION__
+        cout << "  --boost-serialize\n";
+        #endif
+        exit(-1);
     }
-    
+   
     // Some examples - I really should have used vectors instead of string arrays to save myself the pain... Sorry.
     string tags[1] = {"bez"};
     string tag_dt[1] = {"dt"}; string tag_nn[1] = {"nn"};

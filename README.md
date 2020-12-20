@@ -11,11 +11,16 @@ You need to have C++ Boost development libraries (for model serialization).
 
 1. Clone this repo.
 2. `make`
-3. Works.
+3. `./bigram_tagger --read-raw`. Works.
+
+# Serialization
+You can optionally use boost libraries to serialize and deserialize the tagger object.
+To use this feature, please set the SER_OPT flag in the Makefile accordingly and rebuild the
+project.
 
 # Usage
 
-The program is interactive and reads input from the console (you can easily tweak that to read input from options if you want). Just run `./bigram_tagger` and you will see this message:
+The program is interactive and reads input from the console (you can easily tweak that to read input from options if you want). Just run `./bigram_tagger --read-raw` (or --boost-deserialize) and you will see this message:
 ```
 Simple HMM POS tagger - some data from the Brown corpus (note: below are probabilities,
 but the tagger uses logprobs):
